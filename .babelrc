@@ -1,6 +1,16 @@
 {
-  "modules": "umd",
-  "loose": "all",
-  "compact": true,
-  "comments": false
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "modules": "umd",
+        "loose": true,
+        "targets": {
+          "browsers": ["> 0.25%", "not dead"]
+        }
+      }
+    ]
+  ],
+  "comments": false,
+  "compact": true
 }

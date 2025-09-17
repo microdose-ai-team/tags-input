@@ -6,13 +6,14 @@ const BACKSPACE = 8,
 	DELETE = 46,
 	COMMA = 188;
 
-const SEPERATOR = ',';
+const SEPARATOR = ',';
 
 const COPY_PROPS = 'placeholder pattern spellcheck autocomplete autocapitalize autofocus accessKey accept lang minLength maxLength required'.split(' ');
 
-export default function tagsInput(input) {
+export default function tagsInput(input, inputID) {
 	function createElement(type, name, text, attributes) {
 		let el = document.createElement(type);
+		if (name) el.id = name;
 		if (name) el.className = name;
 		if (text) el.textContent = text;
 		for (let key in attributes) {
@@ -29,7 +30,7 @@ export default function tagsInput(input) {
 		return $('.tag', true)
 			.map( tag => tag.textContent )
 			.concat(base.input.value || [])
-			.join(SEPERATOR);
+			.join(SEPARATOR);
 	}
 
 	function setValue(value) {
@@ -44,8 +45,8 @@ export default function tagsInput(input) {
 
 	// Return false if no need to add a tag
 	function addTag(text) {
-		// Add multiple tags if the user pastes in data with SEPERATOR already in it
-		if (~text.indexOf(SEPERATOR)) text = text.split(SEPERATOR);
+		// Add multiple tags if the user pastes in data with SEPARATOR already in it
+		if (~text.indexOf(SEPARATOR)) text = text.split(SEPARATOR);
 		if (Array.isArray(text)) return text.forEach(addTag);
 
 		let tag = text && text.trim();
@@ -54,10 +55,10 @@ export default function tagsInput(input) {
 
 		// For duplicates, briefly highlight the existing tag
 		if (!input.getAttribute('duplicates')) {
-			let exisingTag = $(`[data-tag="${tag}"]`);
-			if (exisingTag) {
-				exisingTag.classList.add('dupe');
-				setTimeout( () => exisingTag.classList.remove('dupe') , 100);
+			let existingTag = $(`[data-tag="${tag}"]`);
+			if (existingTag) {
+				existingTag.classList.add('dupe');
+				setTimeout( () => existingTag.classList.remove('dupe') , 100);
 				return false;
 			}
 		}
@@ -120,6 +121,7 @@ export default function tagsInput(input) {
 	input.parentNode[sib?'insertBefore':'appendChild'](base, sib);
 
 	input.style.cssText = 'position:absolute;left:0;top:-99px;width:1px;height:1px;opacity:0.01;';
+	base.style.cssText = 'position:absolute;left:0;top:-99px;width:1px;height:1px;opacity:0.01;';
 	input.tabIndex = -1;
 
 	let inputType = input.getAttribute('type');
@@ -127,6 +129,7 @@ export default function tagsInput(input) {
 		inputType = 'text';
 	}
 	base.input = createElement('input');
+	base.input.id = `${inputID}-editable`;
 	base.input.setAttribute('type', inputType);
 	COPY_PROPS.forEach( prop => {
 		if (input[prop]!==base.input[prop]) {
