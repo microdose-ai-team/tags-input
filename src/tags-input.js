@@ -11,10 +11,11 @@ const SEPARATOR = ',';
 const COPY_PROPS = 'placeholder pattern spellcheck autocomplete autocapitalize autofocus accessKey accept lang minLength maxLength required'.split(' ');
 
 export default function tagsInput(input, inputID) {
-	function createElement(type, name, text, attributes) {
+	function createElement(type, name, hidden, text, attributes) {
 		let el = document.createElement(type);
 		if (name) el.id = name;
-		if (name) el.className = name;
+		if (name) el.classList.add = name;
+		if (hidden) el.classList.add("hidden");
 		if (text) el.textContent = text;
 		for (let key in attributes) {
 			el.setAttribute(`data-${key}`, attributes[key]);
@@ -64,7 +65,7 @@ export default function tagsInput(input, inputID) {
 		}
 
 		base.insertBefore(
-			createElement('span', 'tag', tag, { tag }),
+			createElement('span', 'tag', false, tag, { tag }),
 			base.input
 		);
 	}
@@ -115,7 +116,7 @@ export default function tagsInput(input, inputID) {
 	}
 
 
-	let base = createElement('div', 'tags-input'),
+	let base = createElement('div', 'tags-input', true),
 		sib = input.nextSibling;
 
 	input.parentNode[sib?'insertBefore':'appendChild'](base, sib);
@@ -127,7 +128,7 @@ export default function tagsInput(input, inputID) {
 	if (!inputType || inputType === 'tags') {
 		inputType = 'text';
 	}
-	base.input = createElement('input');
+	base.input = createElement('input', '', false);
 	base.input.id = `${inputID}-editable`;
 	base.input.setAttribute('type', inputType);
 	COPY_PROPS.forEach( prop => {
