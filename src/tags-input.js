@@ -14,7 +14,7 @@ export default function tagsInput(input, inputID) {
 	function createElement(type, name, hidden, text, attributes) {
 		let el = document.createElement(type);
 		if (name) el.id = name;
-		if (name) el.classList.add = name;
+		if (name) el.classList.add(name);
 		if (hidden) el.classList.add("hidden");
 		if (text) el.textContent = text;
 		for (let key in attributes) {
