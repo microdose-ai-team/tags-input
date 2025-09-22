@@ -1,236 +1,121 @@
-const BACKSPACE = 8,
-	TAB = 9,
-	ENTER = 13,
-	LEFT = 37,
-	RIGHT = 39,
-	DELETE = 46,
-	COMMA = 188;
-
 const SEPARATOR = ',';
-
-const COPY_PROPS = 'placeholder pattern spellcheck autocomplete autocapitalize autofocus accessKey accept lang minLength maxLength required'.split(' ');
+const COPY_PROPS = [
+  'placeholder', 'pattern', 'spellcheck', 'autocomplete',
+  'autocapitalize', 'autofocus', 'accessKey', 'accept', 'lang',
+  'minLength', 'maxLength', 'required'
+];
 
 export default function tagsInput(input, inputID) {
-	function createElement(type, name, hidden, text, attributes) {
-		let el = document.createElement(type);
-		if (name) el.id = name;
-		if (name) el.classList.add(name);
-		if (hidden) el.classList.add("hidden");
-		if (text) el.textContent = text;
-		for (let key in attributes) {
-			el.setAttribute(`data-${key}`, attributes[key]);
-		}
-		return el;
-	}
+  const base = document.createElement('div');
+  base.className = 'tags-input';
+  input.classList.add('hidden');
+  input.tabIndex = -1;
 
-	function $(selector, all) {
-		return all===true ? Array.prototype.slice.call(base.querySelectorAll(selector)) : base.querySelector(selector);
-	}
+  const type = input.getAttribute('type') || 'text';
+  const editable = document.createElement('input');
+  editable.id = `${inputID}-editable`;
+  editable.type = type;
 
-	function getValue() {
-		return $('.tag', true)
-			.map( tag => tag.textContent )
-			.concat(base.input.value || [])
-			.join(SEPARATOR);
-	}
+  COPY_PROPS.forEach(prop => {
+    if (input[prop] !== undefined) {
+      editable[prop] = input[prop];
+    }
+  });
 
-	function setValue(value) {
-		$('.tag', true).forEach( t => base.removeChild(t) );
-		savePartialInput(value);
-	}
+  base.appendChild(editable);
+  input.insertAdjacentElement('afterend', base);
 
-	function save() {
-		input.value = getValue();
-		input.dispatchEvent(new Event('change'));
-	}
+  const tags = new Set();
 
-	// Return false if no need to add a tag
-	function addTag(text) {
-		// Add multiple tags if the user pastes in data with SEPARATOR already in it
-		if (~text.indexOf(SEPARATOR)) text = text.split(SEPARATOR);
-		if (Array.isArray(text)) return text.forEach(addTag);
+  const updateInput = () => {
+    input.value = Array.from(tags).join(SEPARATOR);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
 
-		let tag = text && text.trim();
-		// Ignore if text is empty
-		if (!tag) return false;
+  const renderTags = () => {
+    [...base.querySelectorAll('.tag')].forEach(t => t.remove());
+    tags.forEach(tag => {
+      const span = document.createElement('span');
+      span.className = 'tag';
+      span.textContent = tag;
+      span.dataset.tag = tag;
+      base.insertBefore(span, editable);
+    });
+  };
 
-		// For duplicates, briefly highlight the existing tag
-		if (!input.getAttribute('duplicates')) {
-			let existingTag = $(`[data-tag="${tag}"]`);
-			if (existingTag) {
-				existingTag.classList.add('dupe');
-				setTimeout( () => existingTag.classList.remove('dupe') , 100);
-				return false;
-			}
-		}
+  const addTag = (text) => {
+    const parts = text.split(SEPARATOR).map(t => t.trim()).filter(Boolean);
+    let changed = false;
+    for (const part of parts) {
+      if (!tags.has(part)) {
+        tags.add(part);
+        changed = true;
+      }
+    }
+    if (changed) {
+      renderTags();
+      updateInput();
+    }
+  };
 
-		base.insertBefore(
-			createElement('span', 'tag', false, tag, { tag }),
-			base.input
-		);
-	}
+  const removeTag = (tag) => {
+    if (tags.delete(tag)) {
+      renderTags();
+      updateInput();
+    }
+  };
 
-	function select(el) {
-		let sel = $('.selected');
-		if (sel) sel.classList.remove('selected');
-		if (el) el.classList.add('selected');
-	}
+  editable.addEventListener('keydown', e => {
+    if (['Enter', 'Tab', ','].includes(e.key)) {
+      e.preventDefault();
+      if (editable.value.trim()) {
+        addTag(editable.value);
+        editable.value = '';
+      }
+    } else if (e.key === 'Backspace' && !editable.value) {
+      const last = [...tags].pop();
+      if (last) removeTag(last);
+    }
+  });
 
-	function setInputWidth() {
-		let last = $('.tag',true).pop(),
-			w = base.offsetWidth;
-		if (!w) return;
-		base.input.style.width = Math.max(
-			w - (last ? (last.offsetLeft+last.offsetWidth) : 5) - 5,
-			w/4
-		) + 'px';
-	}
+  editable.addEventListener('blur', () => {
+    if (editable.value.trim()) {
+      addTag(editable.value);
+      editable.value = '';
+    }
+  });
 
-	function savePartialInput(value) {
-		if (typeof value!=='string' && !Array.isArray(value)) {
-			// If the base input does not contain a value, default to the original element passed
-			value = base.input.value;
-		}
-		if (addTag(value)!==false) {
-			base.input.value = '';
-			save();
-			setInputWidth();
-		}
-	}
+  editable.addEventListener('paste', () => {
+    setTimeout(() => {
+      if (editable.value.trim()) {
+        addTag(editable.value);
+        editable.value = '';
+      }
+    }, 0);
+  });
 
-	function refocus(e) {
-		if (e.target.classList.contains('tag')) select(e.target);
-		if (e.target===base.input) return select();
-		base.input.focus();
-		e.preventDefault();
-		return false;
-	}
+  base.addEventListener('click', e => {
+    if (e.target.classList.contains('tag')) {
+      removeTag(e.target.dataset.tag);
+    } else {
+      editable.focus();
+    }
+  });
 
-	function caretAtStart(el) {
-		try {
-			return el.selectionStart === 0 && el.selectionEnd === 0;
-		}
-		catch(e) {
-			return el.value === '';
-		}
-	}
+  // Initialize with existing input value
+  if (input.value) addTag(input.value);
 
-
-	let base = createElement('div', 'tags-input', true),
-		sib = input.nextSibling;
-
-	input.parentNode[sib?'insertBefore':'appendChild'](base, sib);
-
-	input.classList.add("hidden");
-	input.tabIndex = -1;
-
-	let inputType = input.getAttribute('type');
-	if (!inputType || inputType === 'tags') {
-		inputType = 'text';
-	}
-	base.input = createElement('input', '', false);
-	base.input.id = `${inputID}-editable`;
-	base.input.setAttribute('type', inputType);
-	COPY_PROPS.forEach( prop => {
-		if (input[prop]!==base.input[prop]) {
-			base.input[prop] = input[prop];
-			try { delete input[prop]; }catch(e){}
-		}
-	});
-	base.appendChild(base.input);
-
-	input.addEventListener('focus', () => {
-		base.input.focus();
-	});
-
-	base.input.addEventListener('focus', () => {
-		base.classList.add('focus');
-		select();
-	});
-
-	base.input.addEventListener('blur', () => {
-		base.classList.remove('focus');
-		select();
-		savePartialInput();
-	});
-
-	base.input.addEventListener('keydown', e => {
-		let el = base.input,
-			key = e.keyCode || e.which,
-			selectedTag = $('.tag.selected'),
-			atStart = caretAtStart(el),
-			last = $('.tag',true).pop();
-
-		setInputWidth();
-
-		if (key===ENTER || key===COMMA || key===TAB) {
-			if (!el.value && key!==COMMA) return;
-			savePartialInput();
-		}
-		else if (key===DELETE && selectedTag) {
-			if (selectedTag.nextSibling!==base.input) select(selectedTag.nextSibling);
-			base.removeChild(selectedTag);
-			setInputWidth();
-			save();
-		}
-		else if (key===BACKSPACE) {
-			if (selectedTag) {
-				select(selectedTag.previousSibling);
-				base.removeChild(selectedTag);
-				setInputWidth();
-				save();
-			}
-			else if (last && atStart) {
-				select(last);
-			}
-			else {
-				return;
-			}
-		}
-		else if (key===LEFT) {
-			if (selectedTag) {
-				if (selectedTag.previousSibling) {
-					select(selectedTag.previousSibling);
-				}
-			}
-			else if (!atStart) {
-				return;
-			}
-			else {
-				select(last);
-			}
-		}
-		else if (key===RIGHT) {
-			if (!selectedTag) return;
-			select(selectedTag.nextSibling);
-		}
-		else {
-			return select();
-		}
-
-		e.preventDefault();
-		return false;
-	});
-
-	// Proxy "input" (live change) events , update the first tag live as the user types
-	// This means that users who only want one thing don't have to enter commas
-	base.input.addEventListener('input', () => {
-		input.value = getValue();
-		input.dispatchEvent(new Event('input'));
-	});
-
-	// One tick after pasting, parse pasted text as CSV:
-	base.input.addEventListener('paste', () => setTimeout(savePartialInput, 0));
-
-	base.addEventListener('mousedown', refocus);
-	base.addEventListener('touchstart', refocus);
-
-	base.setValue = setValue;
-	base.getValue = getValue;
-
-	// Add tags for existing values
-	savePartialInput(input.value);
+  // Expose public API
+  return {
+    get value() {
+      return Array.from(tags);
+    },
+    set value(val) {
+      tags.clear();
+      if (val) addTag(Array.isArray(val) ? val.join(SEPARATOR) : val);
+    },
+    add: addTag,
+    remove: removeTag
+  };
 }
-
-// make life easier:
-tagsInput.enhance = tagsInput.tagsInput = tagsInput;
